@@ -107,20 +107,32 @@ bot.on('successful_payment', async (ctx) => {
   `);
 });
 
+// ==================== ОБРАБОТКА ФОТО ====================
+
 bot.on('photo', async (ctx) => {
   try {
+    // Получаем самое большое фото
     const photo = ctx.message.photo[ctx.message.photo.length - 1];
+    
+    // Получаем информацию о файле
     const file = await ctx.telegram.getFile(photo.file_id);
     
-    const validation = validatePhoto(file);
-    if (!validation.valid) return ctx.reply(`❌ ${validation.error}`);
+    // У фото в Telegram нет mime_type, поэтому мы знаем что это фото
+    // Просто проверяем размер
+    const MAX_SIZE = 20 * 1024 * 1024;
+    if (file.file_size > MAX_SIZE) {
+      return ctx.reply(`❌ Файл слишком большой. Максимум ${MAX_SIZE / 1024 / 1024}MB`);
+    }
 
+    // Формируем URL для скачивания
     const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+    
     const loadingMsg = await ctx.reply('🔍 *Анализирую фото...*', { parse_mode: 'Markdown' });
 
     const goal = ctx.session?.goal;
     const isPremium = ctx.session?.premium || false;
 
+    // Отправляем на анализ
     const result = await analyzeFoodPhoto(fileUrl, goal);
 
     const card = formatFoodCard(result, isPremium, goal);
@@ -139,7 +151,8 @@ bot.on('photo', async (ctx) => {
   }
 });
 
-// ДОБАВЛЯЕМ: Обработка документов (если пользователь отправил картинку как файл)
+// ==================== ОБРАБОТКА ДОКУМЕНТОВ (КАРТИНКИ КАК ФАЙЛЫ) ====================
+
 bot.on('document', async (ctx) => {
   try {
     const document = ctx.message.document;
@@ -151,11 +164,11 @@ bot.on('document', async (ctx) => {
 
     const file = await ctx.telegram.getFile(document.file_id);
     
-    const validation = validatePhoto({ 
-      file_size: document.file_size, 
-      mime_type: document.mime_type 
-    });
-    if (!validation.valid) return ctx.reply(`❌ ${validation.error}`);
+    // Проверяем размер
+    const MAX_SIZE = 20 * 1024 * 1024;
+    if (document.file_size > MAX_SIZE) {
+      return ctx.reply(`❌ Файл слишком большой. Максимум ${MAX_SIZE / 1024 / 1024}MB`);
+    }
 
     const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
     const loadingMsg = await ctx.reply('🔍 *Анализирую фото...*', { parse_mode: 'Markdown' });
@@ -180,7 +193,6 @@ bot.on('document', async (ctx) => {
     ctx.replyWithMarkdown('❌ *Ошибка анализа.* Попробуй другое фото.');
   }
 });
-
 function formatFoodCard(data: any, isPremium: boolean, goal?: string): string {
   let card = `
 🍽 *${data.name || 'Блюдо'}*
