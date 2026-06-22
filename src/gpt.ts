@@ -1,8 +1,8 @@
 ﻿import axios from 'axios';
 
-const HF_TOKEN = process.env.HF_TOKEN;
-// Используем правильный эндпоинт для Inference API
-const HF_API_URL = 'https://api-inference.huggingface.co/models/llava-hf/llava-1.5-7b-hf';
+// Используем OpenRouter API (бесплатный, работает на Render)
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 let fallbackCounter = 0;
 
@@ -10,41 +10,53 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
   const goalText = goal ? `Goal: ${goal}. ` : '';
   
   try {
-    console.log('🔍 Отправка запроса к HuggingFace API...');
-    console.log(`📡 URL: ${HF_API_URL}`);
-    console.log(`🔑 Токен: ${HF_TOKEN ? '✅ Установлен' : '❌ НЕ УСТАНОВЛЕН'}`);
+    console.log('🔍 Отправка запроса к OpenRouter API...');
+    console.log(`📡 URL: ${OPENROUTER_URL}`);
+    console.log(`🔑 Токен: ${OPENROUTER_API_KEY ? '✅ Установлен' : '❌ НЕ УСТАНОВЛЕН'}`);
 
-    // Для API Inference используем другой формат
     const response = await axios.post(
-      HF_API_URL,
+      OPENROUTER_URL,
       {
-        inputs: {
-          image: imageUrl,
-          prompt: `${goalText}Analyze this food photo. Return ONLY valid JSON with no markdown. Format: {"name":"dish name","calories":350,"protein":20,"fat":10,"carbs":30,"advice":"healthy advice"}`
-        },
-        parameters: {
-          max_new_tokens: 500,
-          temperature: 0.3,
-          return_full_text: false
-        }
+        model: 'microsoft/phi-3-vision-128k-instruct',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `${goalText}Analyze this food photo. Return ONLY valid JSON. No markdown, no extra text. Format: {"name":"dish name in English","calories":350,"protein":20.5,"fat":10.3,"carbs":30.7,"advice":"healthy advice"}`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imageUrl
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.3
       },
       {
         headers: {
-          Authorization: `Bearer ${HF_TOKEN}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://food-bot.onrender.com',
+          'X-Title': 'Food Bot'
         },
         timeout: 60000
       }
     );
 
-    console.log('✅ Ответ от HuggingFace получен');
-    const content = response.data.generated_text || '';
+    console.log('✅ Ответ от OpenRouter получен');
+    const content = response.data.choices?.[0]?.message?.content || '';
     console.log(`📝 Ответ: ${content.substring(0, 200)}...`);
     
     return parseResponse(content);
 
   } catch (error: any) {
-    console.error('❌ HuggingFace API error:', error.message || error);
+    console.error('❌ OpenRouter API error:', error.message || error);
     
     if (error.response) {
       console.error('📊 Статус:', error.response.status);
@@ -90,7 +102,6 @@ function parseResponse(content: string): any {
 function getImprovedFallbackResponse(imageUrl: string, goal?: string): any {
   fallbackCounter++;
   
-  // Генерируем ответ на основе URL
   const urlHash = imageUrl.split('/').pop() || '';
   const seed = (urlHash.length + fallbackCounter) % 10;
   
