@@ -117,10 +117,9 @@ bot.on('photo', async (ctx) => {
     // Получаем информацию о файле
     const file = await ctx.telegram.getFile(photo.file_id);
     
-    // У фото в Telegram нет mime_type, поэтому мы знаем что это фото
-    // Просто проверяем размер
+    // Проверяем размер (с защитой от undefined)
     const MAX_SIZE = 20 * 1024 * 1024;
-    if (file.file_size > MAX_SIZE) {
+    if (file.file_size && file.file_size > MAX_SIZE) {
       return ctx.reply(`❌ Файл слишком большой. Максимум ${MAX_SIZE / 1024 / 1024}MB`);
     }
 
@@ -157,6 +156,11 @@ bot.on('document', async (ctx) => {
   try {
     const document = ctx.message.document;
     
+    // Проверяем, что документ существует
+    if (!document) {
+      return ctx.reply('❌ Документ не найден');
+    }
+    
     // Проверяем, что это изображение
     if (!document.mime_type || !document.mime_type.startsWith('image/')) {
       return ctx.reply('❌ Пожалуйста, отправьте изображение');
@@ -164,9 +168,9 @@ bot.on('document', async (ctx) => {
 
     const file = await ctx.telegram.getFile(document.file_id);
     
-    // Проверяем размер
+    // Проверяем размер (с защитой от undefined)
     const MAX_SIZE = 20 * 1024 * 1024;
-    if (document.file_size > MAX_SIZE) {
+    if (document.file_size && document.file_size > MAX_SIZE) {
       return ctx.reply(`❌ Файл слишком большой. Максимум ${MAX_SIZE / 1024 / 1024}MB`);
     }
 

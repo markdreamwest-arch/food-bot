@@ -5,16 +5,13 @@
     return { valid: false, error: '❌ Файл не найден' };
   }
 
-  // Проверка размера
-  if (file.file_size > MAX_SIZE) {
+  // Проверка размера (с защитой от undefined)
+  if (file.file_size && file.file_size > MAX_SIZE) {
     return { 
       valid: false, 
       error: `❌ Файл слишком большой. Максимум ${MAX_SIZE / 1024 / 1024}MB` 
     };
   }
-
-  // Для photo у нас нет mime_type, пропускаем проверку
-  // Для document проверяем в bot.ts
 
   return { valid: true };
 }
