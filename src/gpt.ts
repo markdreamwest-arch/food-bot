@@ -17,8 +17,8 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
     const response = await axios.post(
       OPENROUTER_URL,
       {
-        // Используем модель, которая точно поддерживает изображения
-        model: 'google/gemini-flash-1.5',
+        // Используем точное название модели
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: [
           {
             role: 'user',
