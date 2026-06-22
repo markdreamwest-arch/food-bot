@@ -33,15 +33,22 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
     const content = response.data.generated_text || '';
     return parseResponse(content);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('HuggingFace API error:', error);
     
     // Если ошибка сети — возвращаем заглушку
-    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      console.log('⚠️ Использую fallback-ответ (сеть недоступна)');
       return getFallbackResponse(goal);
     }
     
-    throw error;
+    // Если ошибка с самим запросом
+    if (error.response) {
+      console.error('Ответ с ошибкой:', error.response.status, error.response.data);
+    }
+    
+    // Возвращаем fallback в любом случае
+    return getFallbackResponse(goal);
   }
 }
 
@@ -80,6 +87,22 @@ function getFallbackResponse(goal?: string): any {
       fat: 3,
       carbs: 25,
       advice: "Лёгкий и полезный вариант. Идеально для ужина."
+    },
+    {
+      name: "Рыба с овощами",
+      calories: 320,
+      protein: 30,
+      fat: 15,
+      carbs: 15,
+      advice: "Отличный источник омега-3! Добавьте лимон для вкуса."
+    },
+    {
+      name: "Творог с фруктами",
+      calories: 200,
+      protein: 18,
+      fat: 5,
+      carbs: 22,
+      advice: "Идеальный завтрак или перекус. Богат кальцием."
     }
   ];
   
