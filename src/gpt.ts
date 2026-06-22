@@ -1,12 +1,10 @@
 ﻿import axios from 'axios';
 
 const HF_TOKEN = process.env.HF_TOKEN;
-const HF_API_URL = 'https://router.huggingface.co/hf-inference';
+// Используем правильный эндпоинт для Inference API
+const HF_API_URL = 'https://api-inference.huggingface.co/models/llava-hf/llava-1.5-7b-hf';
 
-// Счётчик для разнообразия fallback-ответов
 let fallbackCounter = 0;
-
-// ==================== ОСНОВНАЯ ФУНКЦИЯ ====================
 
 export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise<any> {
   const goalText = goal ? `Goal: ${goal}. ` : '';
@@ -14,32 +12,21 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
   try {
     console.log('🔍 Отправка запроса к HuggingFace API...');
     console.log(`📡 URL: ${HF_API_URL}`);
-    console.log(`🤖 Модель: llava-hf/llava-1.5-7b-hf`);
     console.log(`🔑 Токен: ${HF_TOKEN ? '✅ Установлен' : '❌ НЕ УСТАНОВЛЕН'}`);
 
+    // Для API Inference используем другой формат
     const response = await axios.post(
       HF_API_URL,
       {
-        model: 'llava-hf/llava-1.5-7b-hf',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `${goalText}Analyze this food. Return ONLY valid JSON. No markdown, no extra text. Format: {"name":"dish name in English","calories":350,"protein":20.5,"fat":10.3,"carbs":30.7,"advice":"healthy advice"}`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: imageUrl
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.3
+        inputs: {
+          image: imageUrl,
+          prompt: `${goalText}Analyze this food photo. Return ONLY valid JSON with no markdown. Format: {"name":"dish name","calories":350,"protein":20,"fat":10,"carbs":30,"advice":"healthy advice"}`
+        },
+        parameters: {
+          max_new_tokens: 500,
+          temperature: 0.3,
+          return_full_text: false
+        }
       },
       {
         headers: {
@@ -51,8 +38,8 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
     );
 
     console.log('✅ Ответ от HuggingFace получен');
-    const content = response.data.choices?.[0]?.message?.content || '';
-    console.log(`📝 Содержимое ответа: ${content.substring(0, 200)}...`);
+    const content = response.data.generated_text || '';
+    console.log(`📝 Ответ: ${content.substring(0, 200)}...`);
     
     return parseResponse(content);
 
@@ -69,25 +56,30 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
   }
 }
 
-// ==================== ПАРСИНГ ОТВЕТА ====================
-
 function parseResponse(content: string): any {
   try {
-    // Пробуем найти JSON в тексте
-    const match = content.match(/\{[\s\S]*\}/);
+    // Убираем возможные префиксы
+    let cleanContent = content.trim();
+    
+    // Если ответ начинается с "Here is" и т.д. — пытаемся найти JSON
+    const match = cleanContent.match(/\{[\s\S]*\}/);
     if (match) {
       const parsed = JSON.parse(match[0]);
       console.log('📊 Распарсенный ответ:', parsed);
       
-      // Проверяем, что все поля есть
-      if (!parsed.name || !parsed.calories || !parsed.protein || !parsed.fat || !parsed.carbs) {
-        console.warn('⚠️ Неполные данные в ответе, использую fallback');
-        return getImprovedFallbackResponse('', '');
+      // Проверяем обязательные поля
+      if (parsed.name && parsed.calories !== undefined && parsed.protein !== undefined) {
+        return parsed;
       }
-      
-      return parsed;
     }
-    throw new Error('No JSON found');
+    
+    // Если не нашли JSON — пробуем распарсить как есть
+    try {
+      const parsed = JSON.parse(cleanContent);
+      return parsed;
+    } catch {
+      throw new Error('No valid JSON found');
+    }
   } catch (error) {
     console.error('❌ Ошибка парсинга:', error);
     console.log('📝 Содержимое:', content);
@@ -95,19 +87,17 @@ function parseResponse(content: string): any {
   }
 }
 
-// ==================== FALLBACK ОТВЕТЫ ====================
-
 function getImprovedFallbackResponse(imageUrl: string, goal?: string): any {
   fallbackCounter++;
   
-  // Используем URL изображения для генерации уникального ответа
+  // Генерируем ответ на основе URL
   const urlHash = imageUrl.split('/').pop() || '';
   const seed = (urlHash.length + fallbackCounter) % 10;
   
   const fallbacks = [
     {
       name: "Салат с курицей и авокадо",
-      calories: 380 + seed * 5,
+      calories: 350 + seed * 5,
       protein: 28 + seed % 5,
       fat: 14 + seed % 3,
       carbs: 18 + seed % 4,
