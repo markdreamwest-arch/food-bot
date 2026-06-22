@@ -1,6 +1,6 @@
 ﻿import axios from 'axios';
 
-// Используем OpenRouter API (бесплатный, работает на Render)
+// Используем OpenRouter API
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -17,8 +17,8 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
     const response = await axios.post(
       OPENROUTER_URL,
       {
-        // Используем точное название модели
-        model: 'google/gemini-2.0-flash-exp:free',
+        // Используем модель, которая точно работает
+        model: 'anthropic/claude-3-haiku:free',
         messages: [
           {
             role: 'user',
