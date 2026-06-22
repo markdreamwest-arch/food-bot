@@ -17,7 +17,8 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
     const response = await axios.post(
       OPENROUTER_URL,
       {
-        model: 'microsoft/phi-3-vision-128k-instruct',
+        // Используем модель, которая точно поддерживает изображения
+        model: 'google/gemini-flash-1.5',
         messages: [
           {
             role: 'user',
@@ -70,22 +71,15 @@ export async function analyzeFoodPhoto(imageUrl: string, goal?: string): Promise
 
 function parseResponse(content: string): any {
   try {
-    // Убираем возможные префиксы
     let cleanContent = content.trim();
-    
-    // Если ответ начинается с "Here is" и т.д. — пытаемся найти JSON
     const match = cleanContent.match(/\{[\s\S]*\}/);
     if (match) {
       const parsed = JSON.parse(match[0]);
       console.log('📊 Распарсенный ответ:', parsed);
-      
-      // Проверяем обязательные поля
       if (parsed.name && parsed.calories !== undefined && parsed.protein !== undefined) {
         return parsed;
       }
     }
-    
-    // Если не нашли JSON — пробуем распарсить как есть
     try {
       const parsed = JSON.parse(cleanContent);
       return parsed;
