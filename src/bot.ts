@@ -139,6 +139,48 @@ bot.on('photo', async (ctx) => {
   }
 });
 
+// ДОБАВЛЯЕМ: Обработка документов (если пользователь отправил картинку как файл)
+bot.on('document', async (ctx) => {
+  try {
+    const document = ctx.message.document;
+    
+    // Проверяем, что это изображение
+    if (!document.mime_type || !document.mime_type.startsWith('image/')) {
+      return ctx.reply('❌ Пожалуйста, отправьте изображение');
+    }
+
+    const file = await ctx.telegram.getFile(document.file_id);
+    
+    const validation = validatePhoto({ 
+      file_size: document.file_size, 
+      mime_type: document.mime_type 
+    });
+    if (!validation.valid) return ctx.reply(`❌ ${validation.error}`);
+
+    const fileUrl = `https://api.telegram.org/file/bot${process.env.BOT_TOKEN}/${file.file_path}`;
+    const loadingMsg = await ctx.reply('🔍 *Анализирую фото...*', { parse_mode: 'Markdown' });
+
+    const goal = ctx.session?.goal;
+    const isPremium = ctx.session?.premium || false;
+
+    const result = await analyzeFoodPhoto(fileUrl, goal);
+
+    const card = formatFoodCard(result, isPremium, goal);
+    
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      loadingMsg.message_id,
+      undefined,
+      card,
+      { parse_mode: 'Markdown' }
+    );
+
+  } catch (error) {
+    console.error('Ошибка обработки документа:', error);
+    ctx.replyWithMarkdown('❌ *Ошибка анализа.* Попробуй другое фото.');
+  }
+});
+
 function formatFoodCard(data: any, isPremium: boolean, goal?: string): string {
   let card = `
 🍽 *${data.name || 'Блюдо'}*
